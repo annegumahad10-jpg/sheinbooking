@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SHEIN BOOKING</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #ffd6e7, #ffeaf4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  background: rgba(255,255,255,0.95);
+  padding: 30px;
+  border-radius: 25px;
+  width: 95%;
+  max-width: 480px;
+  box-shadow: 0 10px 30px rgba(255,105,180,0.3);
+  text-align: center;
+}
+
+h1 {
+  color: #ff4fa3;
+  margin-bottom: 25px;
+  font-size: 26px;
+}
+
+button {
+  width: 100%;
+  padding: 18px;
+  margin: 14px 0;
+  border: none;
+  border-radius: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  background: linear-gradient(45deg, #ff9ecf, #ff6fb5);
+  color: white;
+  transition: 0.3s;
+  animation: bounce 2s infinite;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 15px;
+  border: 1px solid #ffc2dd;
+  outline: none;
+  font-size: 14px;
+}
+
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #ffe3f2;
+  padding: 30px;
+  border-radius: 20px;
+  display: none;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  font-weight: bold;
+  color: #ff4fa3;
+  text-align: center;
+}
+
+.sku-input {
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="container" id="home">
+  <h1>💗 SHEIN BOOKING 🎀✨</h1>
+  <button id="btnPlace">Place Order</button>
+  <button id="btnStatus">Order Status</button>
+  <button id="btnAdmin">Admin Panel</button>
+</div>
+
+<!-- PLACE ORDER -->
+<div class="container" id="place" style="display:none;">
+  <h1>🛍️ Place Order</h1>
+  <input type="text" placeholder="Full Name" id="name" required>
+  <input type="text" placeholder="Address" id="address" required>
+  <input type="text" placeholder="Phone Number (10 digits)" id="phone" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+  <input type="text" placeholder="Zip Code" id="zip" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+  <textarea placeholder="Note for booking" id="note"></textarea>
+  <input type="number" placeholder="How many items?" id="itemCount" min="1">
+  <div id="skuInputs"></div>
+
+  <p>Scan QR Code to Pay 💳✨</p>
+  <img id="qrImage" src="https://i.imgur.com/PquwwgW.jpeg" width="180" style="border-radius:20px; margin:15px 0; box-shadow:0 8px 20px rgba(255,105,180,0.4);">
+  <input type="text" placeholder="Enter Payment Reference Number" id="ref" required>
+
+  <button id="btnSubmit">Submit Order</button>
+  <button id="btnBackPlace">Back</button>
+</div>
+
+<!-- ORDER STATUS -->
+<div class="container" id="status" style="display:none;">
+  <h1>📦 Order Status</h1>
+  <input type="text" placeholder="Enter Your Name" id="searchName">
+  <button id="btnCheckStatus">Check</button>
+  <div id="statusResult"></div>
+  <button id="btnBackStatus">Back</button>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="container" id="admin" style="display:none;">
+  <h1>🔐 Admin Login</h1>
+  <input type="password" placeholder="Enter Admin Password" id="adminPass">
+  <button id="btnAdminLogin">Login</button>
+
+  <div id="adminPanel" style="display:none;">
+    <h3>Orders</h3>
+    <div id="adminOrders"></div>
+  </div>
+
+  <button id="btnBackAdmin">Back</button>
+</div>
+
+<!-- POPUP -->
+<div class="popup" id="popup">
+  💖 THANK YOU FOR YOUR ORDER! 🎀✨<br>
+  Please check order status within 24 hours! 💕
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// 🔥 FIREBASE CONFIG - Replace with your info
+const firebaseConfig = {
+    apiKey: "AIzaSyD2QkT406nzL4Vaz0uT6wBgcPXtwd5WtkA",
+    authDomain: "bookingshein-72545.firebaseapp.com",
+    projectId: "bookingshein-72545",
+    storageBucket: "bookingshein-72545.firebasestorage.app",
+    messagingSenderId: "335474823018",
+    appId: "1:335474823018:web:0293861a132aa538f19f13"
+  };
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// =========================
+// NAVIGATION
+// =========================
+function showPage(page){
+  document.querySelectorAll('.container').forEach(c => c.style.display='none');
+  document.getElementById(page).style.display='block';
+}
+
+document.getElementById("btnPlace").addEventListener("click",()=>showPage('place'));
+document.getElementById("btnStatus").addEventListener("click",()=>showPage('status'));
+document.getElementById("btnAdmin").addEventListener("click",()=>showPage('admin'));
+document.getElementById("btnBackPlace").addEventListener("click",()=>showPage('home'));
+document.getElementById("btnBackStatus").addEventListener("click",()=>showPage('home'));
+document.getElementById("btnBackAdmin").addEventListener("click",()=>showPage('home'));
+
+// =========================
+// DYNAMIC SKU INPUTS (with optional size/color)
+document.getElementById("itemCount").addEventListener("input", function(){
+  let count = parseInt(this.value);
+  let skuDiv = document.getElementById("skuInputs");
+  skuDiv.innerHTML = "";
+  if(count > 0){
+    for(let i=1;i<=count;i++){
+      skuDiv.innerHTML += `
+        <div class="sku-input">
+          <input type="text" placeholder="SKU #${i}" class="sku">
+          <input type="text" placeholder="Size (optional)" class="skuSize">
+          <input type="text" placeholder="Color (optional)" class="skuColor">
+        </div>`;
+    }
+  }
+});
+
+// =========================
+// SUBMIT ORDER
+document.getElementById("btnSubmit").addEventListener("click", async ()=>{
+  const name = document.getElementById("name").value.trim();
+  const address = document.getElementById("address").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const zip = document.getElementById("zip").value.trim();
+  const ref = document.getElementById("ref").value.trim();
+  const note = document.getElementById("note").value.trim();
+  const skus = [...document.querySelectorAll(".sku")].map((i,idx)=>{
+    const size = document.querySelectorAll(".skuSize")[idx].value.trim();
+    const color = document.querySelectorAll(".skuColor")[idx].value.trim();
+    return { sku: i.value.trim(), size: size || "-", color: color || "-" };
+  });
+
+  if(!name || !address || !phone || !zip || !ref || skus.some(s=>s.sku==="")){
+    alert("Please complete all required fields!");
+    return;
+  }
+
+  try{
+    await addDoc(collection(db,"orders"),{
+      name, address, phone, zip, ref, note,
+      skus, tracking: Array(skus.length).fill(""), adminNote:"", status:"PENDING", timestamp: Date.now()
+    });
+    document.getElementById("popup").style.display="block";
+    setTimeout(()=>{ document.getElementById("popup").style.display="none"; },3000);
+    document.getElementById("place").querySelectorAll("input, textarea").forEach(i=>i.value="");
+    document.getElementById("skuInputs").innerHTML="";
+  }catch(e){ alert("Error submitting order: "+e); }
+});
+
+// =========================
+// CHECK STATUS (CUSTOMER)
+document.getElementById("btnCheckStatus").addEventListener("click", async ()=>{
+  const searchName = document.getElementById("searchName").value.trim();
+  if(!searchName) return;
+
+  const q = query(collection(db,"orders"), where("name","==",searchName));
+  const querySnapshot = await getDocs(q);
+  if(querySnapshot.empty){
+    document.getElementById("statusResult").innerHTML="No orders found.";
+    return;
+  }
+
+  let html = "";
+  querySnapshot.forEach(docSnap=>{
+    const o = docSnap.data();
+    html += `<div style="background:#ffe3f2;padding:10px;margin:10px;border-radius:15px;text-align:left;">
+      <p>Status: <strong>${o.status}</strong></p>
+      <p>Items & Tracking:</p>
+      <ul>`;
+    o.skus.forEach((item,i)=>{
+      html += `<li>${item.sku} (${item.size}, ${item.color}) - ${o.tracking[i] || "Not available yet"}</li>`;
+    });
+    html += `</ul>
+      ${o.adminNote ? `<p>Admin Note: ${o.adminNote}</p>` : ""}
+    </div>`;
+  });
+  document.getElementById("statusResult").innerHTML = html;
+});
+
+// =========================
+// ADMIN LOGIN & MARK DONE
+document.getElementById("btnAdminLogin").addEventListener("click", async ()=>{
+  const pass = document.getElementById("adminPass").value;
+  if(pass!=="admin123") return alert("Wrong password!");
+
+  document.getElementById("adminPanel").style.display="block";
+  const querySnapshot = await getDocs(collection(db,"orders"));
+  let html = "";
+  querySnapshot.forEach(docSnap=>{
+    const o = docSnap.data();
+    if(o.status === "DONE") return;
+
+    html += `<div style="background:#ffe3f2;padding:10px;margin:10px;border-radius:15px;text-align:left;">
+      <p><strong>Customer Name:</strong> ${o.name}</p>
+      <p><strong>Address:</strong> ${o.address}</p>
+      <p><strong>Phone:</strong> ${o.phone}</p>
+      <p><strong>Zip:</strong> ${o.zip}</p>
+      <p><strong>Customer Note:</strong> ${o.note}</p>
+      <p><strong>Payment Ref:</strong> ${o.ref}</p>
+      <p>SKUs & Tracking:</p>`;
+    o.skus.forEach((item,i)=>{
+      html += `<input type="text" class="adminSku" placeholder="Tracking for ${item.sku}" data-index="${i}" data-doc="${docSnap.id}">`;
+    });
+    html += `<p>Admin Note:</p>
+      <textarea class="adminNote" placeholder="Add a note..." data-doc="${docSnap.id}">${o.adminNote || ""}</textarea>
+      <button class="markDoneBtn" data-doc="${docSnap.id}" disabled>MARK AS DONE</button>
+    </div>`;
+  });
+  document.getElementById("adminOrders").innerHTML = html;
+
+  // Enable MARK AS DONE only when all tracking + note filled
+  document.querySelectorAll(".markDoneBtn").forEach(btn=>{
+    const docId = btn.getAttribute("data-doc");
+
+    const checkEnable = ()=>{
+      const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
+      const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
+      const allFilled = Array.from(skuInputs).every(i=>i.value.trim()!=="") && noteInput.value.trim()!=="";
+      btn.disabled = !allFilled;
+    };
+
+    document.querySelectorAll(`.adminSku[data-doc='${docId}']`).forEach(i=>i.addEventListener("input", checkEnable));
+    document.querySelector(`.adminNote[data-doc='${docId}']`).addEventListener("input", checkEnable);
+
+    btn.addEventListener("click", async ()=>{
+      const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
+      const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
+      const trackingArr = Array.from(skuInputs).map(i=>i.value.trim());
+      await updateDoc(doc(db,"orders",docId), {tracking: trackingArr, adminNote: noteInput.value.trim(), status:"DONE"});
+      document.getElementById("btnAdminLogin").click();
+    });
+  });
+});
+</script>
+</body>
+</html>
