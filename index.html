@@ -46,14 +46,8 @@ button {
   animation: bounce 2s infinite;
 }
 
-button:hover {
-  transform: scale(1.05);
-}
-
-@keyframes bounce {
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
+button:hover { transform: scale(1.05); }
+@keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 input, textarea {
   width: 100%;
@@ -80,9 +74,7 @@ input, textarea {
   text-align: center;
 }
 
-.sku-input {
-  margin-bottom: 8px;
-}
+.sku-input { margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -126,15 +118,16 @@ input, textarea {
 <!-- ADMIN PANEL -->
 <div class="container" id="admin" style="display:none;">
   <h1>🔐 Admin Login</h1>
-  <input type="password" placeholder="Enter Admin Password" id="adminPass">
+  <input type="email" placeholder="Admin Email" id="adminEmail" required>
+  <input type="password" placeholder="Password" id="adminPassword" required>
   <button id="btnAdminLogin">Login</button>
+  <button id="btnBackAdmin">Back</button>
 
   <div id="adminPanel" style="display:none;">
     <h3>Orders</h3>
     <div id="adminOrders"></div>
+    <button id="btnAdminLogout">Logout</button>
   </div>
-
-  <button id="btnBackAdmin">Back</button>
 </div>
 
 <!-- POPUP -->
@@ -147,18 +140,21 @@ input, textarea {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // 🔥 FIREBASE CONFIG - Replace with your info
 const firebaseConfig = {
     apiKey: "AIzaSyD2QkT406nzL4Vaz0uT6wBgcPXtwd5WtkA",
     authDomain: "bookingshein-72545.firebaseapp.com",
     projectId: "bookingshein-72545",
-    storageBucket: "bookingshein-72545.firebasestorage.app",
+    storageBucket: "bookingshein-72545.appspot.com",
     messagingSenderId: "335474823018",
     appId: "1:335474823018:web:0293861a132aa538f19f13"
-  };
+};
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 // =========================
 // NAVIGATION
@@ -176,7 +172,7 @@ document.getElementById("btnBackStatus").addEventListener("click",()=>showPage('
 document.getElementById("btnBackAdmin").addEventListener("click",()=>showPage('home'));
 
 // =========================
-// DYNAMIC SKU INPUTS (with optional size/color)
+// DYNAMIC SKU INPUTS
 document.getElementById("itemCount").addEventListener("input", function(){
   let count = parseInt(this.value);
   let skuDiv = document.getElementById("skuInputs");
@@ -226,7 +222,7 @@ document.getElementById("btnSubmit").addEventListener("click", async ()=>{
 });
 
 // =========================
-// CHECK STATUS (CUSTOMER)
+// CHECK STATUS
 document.getElementById("btnCheckStatus").addEventListener("click", async ()=>{
   const searchName = document.getElementById("searchName").value.trim();
   if(!searchName) return;
@@ -256,58 +252,88 @@ document.getElementById("btnCheckStatus").addEventListener("click", async ()=>{
 });
 
 // =========================
-// ADMIN LOGIN & MARK DONE
+// ADMIN LOGIN WITH FIREBASE AUTH
 document.getElementById("btnAdminLogin").addEventListener("click", async ()=>{
-  const pass = document.getElementById("adminPass").value;
-  if(pass!=="admin123") return alert("Wrong password!");
+  const email = document.getElementById("adminEmail").value.trim();
+  const password = document.getElementById("adminPassword").value.trim();
 
-  document.getElementById("adminPanel").style.display="block";
-  const querySnapshot = await getDocs(collection(db,"orders"));
-  let html = "";
-  querySnapshot.forEach(docSnap=>{
-    const o = docSnap.data();
-    if(o.status === "DONE") return;
+  if(!email || !password) return alert("Please enter email and password!");
 
-    html += `<div style="background:#ffe3f2;padding:10px;margin:10px;border-radius:15px;text-align:left;">
-      <p><strong>Customer Name:</strong> ${o.name}</p>
-      <p><strong>Address:</strong> ${o.address}</p>
-      <p><strong>Phone:</strong> ${o.phone}</p>
-      <p><strong>Zip:</strong> ${o.zip}</p>
-      <p><strong>Customer Note:</strong> ${o.note}</p>
-      <p><strong>Payment Ref:</strong> ${o.ref}</p>
-      <p>SKUs & Tracking:</p>`;
-    o.skus.forEach((item,i)=>{
-      html += `<input type="text" class="adminSku" placeholder="Tracking for ${item.sku}" data-index="${i}" data-doc="${docSnap.id}">`;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    alert("Login successful!");
+  } catch(e) {
+    return alert("Login failed: "+e.message);
+  }
+});
+
+// =========================
+// CHECK ADMIN STATE AND LOAD PANEL
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    showPage('admin');
+    document.getElementById("adminPanel").style.display="block";
+
+    // Load orders (same as your original adminPanel code)
+    const querySnapshot = await getDocs(collection(db,"orders"));
+    let html = "";
+    querySnapshot.forEach(docSnap=>{
+      const o = docSnap.data();
+      if(o.status==="DONE") return;
+
+      html += `<div style="background:#ffe3f2;padding:10px;margin:10px;border-radius:15px;text-align:left;">
+        <p><strong>Customer Name:</strong> ${o.name}</p>
+        <p><strong>Address:</strong> ${o.address}</p>
+        <p><strong>Phone:</strong> ${o.phone}</p>
+        <p><strong>Zip:</strong> ${o.zip}</p>
+        <p><strong>Customer Note:</strong> ${o.note}</p>
+        <p><strong>Payment Ref:</strong> ${o.ref}</p>
+        <p>SKUs & Tracking:</p>`;
+      o.skus.forEach((item,i)=>{
+        html += `<input type="text" class="adminSku" placeholder="Tracking for ${item.sku}" data-index="${i}" data-doc="${docSnap.id}">`;
+      });
+      html += `<p>Admin Note:</p>
+        <textarea class="adminNote" placeholder="Add a note..." data-doc="${docSnap.id}">${o.adminNote || ""}</textarea>
+        <button class="markDoneBtn" data-doc="${docSnap.id}" disabled>MARK AS DONE</button>
+      </div>`;
     });
-    html += `<p>Admin Note:</p>
-      <textarea class="adminNote" placeholder="Add a note..." data-doc="${docSnap.id}">${o.adminNote || ""}</textarea>
-      <button class="markDoneBtn" data-doc="${docSnap.id}" disabled>MARK AS DONE</button>
-    </div>`;
-  });
-  document.getElementById("adminOrders").innerHTML = html;
+    document.getElementById("adminOrders").innerHTML = html;
 
-  // Enable MARK AS DONE only when all tracking + note filled
-  document.querySelectorAll(".markDoneBtn").forEach(btn=>{
-    const docId = btn.getAttribute("data-doc");
+    // Enable MARK AS DONE only when all tracking + note filled
+    document.querySelectorAll(".markDoneBtn").forEach(btn=>{
+      const docId = btn.getAttribute("data-doc");
 
-    const checkEnable = ()=>{
-      const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
-      const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
-      const allFilled = Array.from(skuInputs).every(i=>i.value.trim()!=="") && noteInput.value.trim()!=="";
-      btn.disabled = !allFilled;
-    };
+      const checkEnable = ()=>{
+        const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
+        const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
+        const allFilled = Array.from(skuInputs).every(i=>i.value.trim()!=="") && noteInput.value.trim()!=="";
+        btn.disabled = !allFilled;
+      };
 
-    document.querySelectorAll(`.adminSku[data-doc='${docId}']`).forEach(i=>i.addEventListener("input", checkEnable));
-    document.querySelector(`.adminNote[data-doc='${docId}']`).addEventListener("input", checkEnable);
+      document.querySelectorAll(`.adminSku[data-doc='${docId}']`).forEach(i=>i.addEventListener("input", checkEnable));
+      document.querySelector(`.adminNote[data-doc='${docId}']`).addEventListener("input", checkEnable);
 
-    btn.addEventListener("click", async ()=>{
-      const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
-      const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
-      const trackingArr = Array.from(skuInputs).map(i=>i.value.trim());
-      await updateDoc(doc(db,"orders",docId), {tracking: trackingArr, adminNote: noteInput.value.trim(), status:"DONE"});
-      document.getElementById("btnAdminLogin").click();
+      btn.addEventListener("click", async ()=>{
+        const skuInputs = document.querySelectorAll(`.adminSku[data-doc='${docId}']`);
+        const noteInput = document.querySelector(`.adminNote[data-doc='${docId}']`);
+        const trackingArr = Array.from(skuInputs).map(i=>i.value.trim());
+        await updateDoc(doc(db,"orders",docId), {tracking: trackingArr, adminNote: noteInput.value.trim(), status:"DONE"});
+        alert("Order marked as DONE!");
+        location.reload();
+      });
     });
-  });
+
+  } else {
+    document.getElementById("adminPanel").style.display="none";
+  }
+});
+
+// =========================
+// ADMIN LOGOUT
+document.getElementById("btnAdminLogout").addEventListener("click", async ()=>{
+  await signOut(auth);
+  alert("Logged out!");
+  showPage('home');
 });
 </script>
 </body>
